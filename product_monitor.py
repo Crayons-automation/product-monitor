@@ -16,15 +16,10 @@ URLS = {
     "Mini GT Box Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1"
 }
 
-# IMPORTANT:
-# GitHub Actions already runs every 5 minutes
-# So we do NOT loop forever in cloud
-CHECK_INTERVAL = 0  
-
 DATA_FILE = "products_seen.json"
 MAX_PAGES = 30
 
-# Gmail (from GitHub Secrets)
+# Gmail (GitHub Secrets)
 EMAIL_FROM = os.getenv("GMAIL_USER")
 EMAIL_TO = os.getenv("GMAIL_USER")
 EMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
@@ -32,7 +27,7 @@ EMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
-# Telegram (from GitHub Secrets)
+# Telegram (GitHub Secrets)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
@@ -41,20 +36,20 @@ HEADERS = {
 }
 
 # =========================
-# PRODUCT SCRAPING
+# SCRAPING
 # =========================
 
 def fetch_products_from_page(base_url, page_no):
     url = f"{base_url}?page={page_no}"
-    r = requests.get(url, headers=HEADERS, timeout=20)
-    r.raise_for_status()
+    response = requests.get(url, headers=HEADERS, timeout=20)
+    response.raise_for_status()
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(response.text, "html.parser")
     products = set()
 
-    for a in soup.select("a"):
+    for a in soup.find_all("a", href=True):
         name = a.get_text(strip=True)
-        link = a.get("href", "")
+        link = a["href"]
 
         if "/details/" in link and name:
             full_link = "https://www.karzanddolls.com" + link
@@ -62,19 +57,21 @@ def fetch_products_from_page(base_url, page_no):
 
     return products
 
+
 def fetch_all_products():
     all_products = set()
 
     for label, base_url in URLS.items():
         for page in range(1, MAX_PAGES + 1):
             products = fetch_products_from_page(base_url, page)
+
             if not products:
                 break
 
             for p in products:
                 all_products.add(f"[{label}] {p}")
 
-            time.sleep(1)
+            time.sleep(1)  # polite delay
 
     return all_products
 
@@ -82,13 +79,14 @@ def fetch_all_products():
 # STORAGE
 # =========================
 
-def load_previous():
+def load_previous_products():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
             return set(json.load(f))
     return set()
 
-def save_current(products):
+
+def save_products(products):
     with open(DATA_FILE, "w") as f:
         json.dump(sorted(list(products)), f, indent=2)
 
@@ -102,6 +100,7 @@ def send_email(new_items):
         return
 
     body = "\n\n".join(new_items)
+
     msg = MIMEText(body)
     msg["Subject"] = "🚨 New Mini GT Products Added"
     msg["From"] = EMAIL_FROM
@@ -128,5 +127,43 @@ def send_telegram(new_items):
         message += f"➕ {item}\n\n"
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+
     payload = {
-        "chat_id": TELEGRAM_CHAT_ID_
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+
+    requests.post(url, data=payload)
+    print("📲 Telegram alert sent")
+
+# =========================
+# MAIN (RUN ONCE PER ACTION)
+# =========================
+
+def main():
+    print("🔍 Product Monitor run started")
+
+    previous_products = load_previous_products()
+    current_products = fetch_all_products()
+
+    new_products = current_products - previous_products
+
+    if new_products:
+        print("🚨 New products detected!")
+        for p in new_products:
+            print("➕", p)
+
+        send_email(new_products)
+        send_telegram(new_products)
+        save_products(current_products)
+
+    else:
+        print(f"✅ No new products ({datetime.now()})")
+
+# =========================
+# ENTRY POINT
+# =========================
+
+if __name__ == "__main__":
+    main()
