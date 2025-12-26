@@ -47,16 +47,19 @@ def fetch_products_from_page(base_url, page_no):
     soup = BeautifulSoup(response.text, "html.parser")
     products = set()
 
-    for a in soup.find_all("a", href=True):
-        name = a.get_text(strip=True)
-        link = a["href"]
+    # Find only product cards (not header/sidebar links)
+    product_cards = soup.select("div.product-item a[href*='/details/']")
 
-        if "/details/" in link and name:
-            full_link = "https://www.karzanddolls.com" + link
-            products.add(f"{name} | {full_link}")
+    for a in product_cards:
+        name = a.get_text(strip=True)
+        link = a.get("href")
+
+        if name and link:
+            if link.startswith("/"):
+                link = "https://www.karzanddolls.com" + link
+            products.add(f"{name} | {link}")
 
     return products
-
 
 def fetch_all_products():
     all_products = set()
