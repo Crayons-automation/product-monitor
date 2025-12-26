@@ -220,6 +220,7 @@ def main():
         save_products(current_products)
     else:
         print(f"✅ No new products ({datetime.now()})")
+    print("RUN CONTEXT:", os.getenv("GITHUB_REPOSITORY"))
 
 # =========================
 # ENTRY POINT
