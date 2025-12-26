@@ -31,8 +31,8 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # HELPERS
 # =========================
 
-def normalize_key(name, url):
-    return f"{name.lower().strip()}::{url}"
+def normalize_name(name):
+    return " ".join(name.lower().split())
 
 def detect_type(url):
     if "/product/mini-gt-blister-pack/" in url:
@@ -109,7 +109,7 @@ def fetch_all_products():
                 break
 
             for p in items:
-                key = normalize_key(p["name"], p["url"])
+                key = f"{p['type']}::{normalize_name(p['name'])}"
                 all_products[key] = p
 
             time.sleep(1)
