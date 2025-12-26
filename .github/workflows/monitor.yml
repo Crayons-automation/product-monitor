@@ -16,12 +16,25 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install requests beautifulsoup4
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
 
-      - run: python product_monitor.py
+      - name: Run product monitor
+        run: python product_monitor.py
+
+      # ⭐ THIS IS THE IMPORTANT PART ⭐
+      - name: Commit updated product snapshot
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add products_seen.json
+          git commit -m "Update product snapshot" || echo "No changes to commit"
+          git push
