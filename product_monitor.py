@@ -126,7 +126,7 @@ def build_message(current, added, removed):
     lines = []
     lines.append("🕒 *Product Monitor Update*")
     lines.append(f"Run time: {datetime.now()}\n")
-
+    lines.append(f"🆔 Run ID: {os.getenv('GITHUB_RUN_ID', 'local')}\n")
     lines.append("📊 *Current Inventory*")
     lines.append(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
     lines.append(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}\n")
