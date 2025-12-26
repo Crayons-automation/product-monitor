@@ -47,24 +47,20 @@ def fetch_products_from_page(base_url, page_no):
     soup = BeautifulSoup(response.text, "html.parser")
     products = set()
 
-    # Each product card
     cards = soup.select("div.show-product-small-bx")
 
     for card in cards:
-        # Product name
         title_tag = card.select_one("div.detail-text h3")
         if not title_tag:
             continue
 
         name = title_tag.get_text(strip=True)
 
-        # Try to find product URL from <a>
         link = None
         a_tag = card.find("a", href=True)
         if a_tag and "/product/" in a_tag["href"]:
             link = a_tag["href"]
 
-        # Fallback: onclick redirect
         if not link:
             cover = card.select_one("div.detail-cover")
             if cover and cover.has_attr("onclick"):
@@ -75,12 +71,9 @@ def fetch_products_from_page(base_url, page_no):
         if not link:
             continue
 
-        # Normalize URL
         if link.startswith("/"):
             link = "https://www.karzanddolls.com" + link
 
-        # Strict Mini GT filtering
-        # Accept all Mini GT products
         if "/product/mini-gt" in link:
             products.add(f"{name} | {link}")
 
@@ -101,28 +94,21 @@ def fetch_all_products():
                 name, link = p.split(" | ", 1)
 
                 if label == "Mini GT Blister Pack" and "mini-gt-blister-pack" in link:
-                    all_products.add(f"[Mini GT Blister Pack] {name} | {link}")
+                    all_products.add(f"[Blister Pack] {name}\n{link}")
 
                 elif label == "Mini GT Box Pack" and "/product/mini-gt/" in link:
-                    all_products.add(f"[Mini GT Box Pack] {name} | {link}")
+                    all_products.add(f"[Box Pack] {name}\n{link}")
 
             time.sleep(1)
 
     return all_products
-    
+
+
 def count_by_type(products):
-    counts = {
-        "Mini GT Box Pack": 0,
-        "Mini GT Blister Pack": 0
+    return {
+        "Mini GT Box Pack": sum(p.startswith("[Box Pack]") for p in products),
+        "Mini GT Blister Pack": sum(p.startswith("[Blister Pack]") for p in products)
     }
-
-    for p in products:
-        if p.startswith("[Mini GT Box Pack]"):
-            counts["Mini GT Box Pack"] += 1
-        elif p.startswith("[Mini GT Blister Pack]"):
-            counts["Mini GT Blister Pack"] += 1
-
-    return counts
 
 # =========================
 # STORAGE
@@ -137,54 +123,59 @@ def load_previous_products():
 
 def save_products(products):
     with open(DATA_FILE, "w") as f:
-        json.dump(sorted(list(products)), f, indent=2)
+        json.dump(sorted(products), f, indent=2)
 
 # =========================
-# EMAIL ALERT
+# EMAIL ALERT (WITH ERROR HANDLING)
 # =========================
 
-def send_email(new_items):
+def send_email(subject, body):
     if not EMAIL_FROM or not EMAIL_PASSWORD:
         print("❌ Gmail credentials not set")
         return
 
-    body = "\n\n".join(new_items)
+    try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_FROM
+        msg["To"] = EMAIL_TO
 
-    msg = MIMEText(body)
-    msg["Subject"] = "🚨 New Mini GT Products Added"
-    msg["From"] = EMAIL_FROM
-    msg["To"] = EMAIL_TO
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
+            server.starttls()
+            server.login(EMAIL_FROM, EMAIL_PASSWORD)
+            server.send_message(msg)
 
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(EMAIL_FROM, EMAIL_PASSWORD)
-        server.send_message(msg)
+        print("📩 Email alert sent successfully")
 
-    print("📩 Email alert sent")
+    except Exception as e:
+        print("❌ Email failed:", str(e))
 
 # =========================
-# TELEGRAM ALERT
+# TELEGRAM ALERT (WITH ERROR HANDLING)
 # =========================
 
-def send_telegram(new_items):
+def send_telegram(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("❌ Telegram credentials not set")
         return
 
-    message = "🚨 *New Mini GT Products Added!*\n\n"
-    for item in new_items:
-        message += f"➕ {item}\n\n"
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message[:3900],
+            "disable_web_page_preview": True
+        }
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        response = requests.post(url, data=payload, timeout=20)
 
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
+        if response.status_code == 200:
+            print("📲 Telegram alert sent successfully")
+        else:
+            print("❌ Telegram failed:", response.text)
 
-    requests.post(url, data=payload)
-    print("📲 Telegram alert sent")
+    except Exception as e:
+        print("❌ Telegram exception:", str(e))
 
 # =========================
 # MAIN
@@ -198,28 +189,32 @@ def main():
 
     counts = count_by_type(current_products)
 
-    print("📊 Product count:")
-    print(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
-    print(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}")
-
     new_products = current_products - previous_products
 
     if new_products:
-        print("🚨 New products detected!")
-        for p in new_products:
-            print("➕", p)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Append counts to alerts
-        summary = set(new_products)
-        summary.add(f"📦 Box Pack count: {counts['Mini GT Box Pack']}")
-        summary.add(f"🧊 Blister Pack count: {counts['Mini GT Blister Pack']}")
+        header = (
+            "🚨 NEW MINI GT PRODUCTS ADDED 🚨\n\n"
+            f"🕒 Detected at: {timestamp}\n\n"
+            f"📦 Box Pack count: {counts['Mini GT Box Pack']}\n"
+            f"🧊 Blister Pack count: {counts['Mini GT Blister Pack']}\n\n"
+            "🆕 New Products:\n"
+            "--------------------\n"
+        )
 
-        send_email(summary)
-        send_telegram(summary)
+        product_list = "\n\n".join(sorted(new_products))
+        message = header + product_list
+
+        send_email("🚨 New Mini GT Products Detected", message)
+        send_telegram(message)
 
         save_products(current_products)
+        print("🚨 New products alert sent")
+
     else:
         print(f"✅ No new products ({datetime.now()})")
+
     print("RUN CONTEXT:", os.getenv("GITHUB_REPOSITORY"))
 
 # =========================
