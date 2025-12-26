@@ -1,11 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 import json
 import os
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime
-import time
 
 # =========================
 # CONFIGURATION
@@ -13,13 +13,12 @@ import time
 
 URLS = {
     "Mini GT Blister Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
-    "Mini GT Box Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1"
+    "Mini GT Box Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1",
 }
 
 DATA_FILE = "products_seen.json"
 MAX_PAGES = 30
 
-# Gmail (GitHub Secrets)
 EMAIL_FROM = os.getenv("GMAIL_USER")
 EMAIL_TO = os.getenv("GMAIL_USER")
 EMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
@@ -27,17 +26,18 @@ EMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
-# Telegram (GitHub Secrets)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
 # SCRAPING
 # =========================
+
+def clean_product_url(url: str) -> str:
+    """Remove tracking/hash garbage from URL"""
+    return url.split(" - ")[0].strip()
 
 def fetch_products_from_page(base_url, page_no):
     url = f"{base_url}?page={page_no}"
@@ -45,9 +45,9 @@ def fetch_products_from_page(base_url, page_no):
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
-    products = {}
-
     cards = soup.select("div.show-product-small-bx")
+
+    results = {}
 
     for card in cards:
         title_tag = card.select_one("div.detail-text h3")
@@ -74,16 +74,18 @@ def fetch_products_from_page(base_url, page_no):
         if link.startswith("/"):
             link = "https://www.karzanddolls.com" + link
 
-        if "/product/mini-gt" in link:
-            products[link] = name
+        link = clean_product_url(link)
 
-    return products
+        if "/product/mini-gt" in link:
+            results[link] = name
+
+    return results
 
 
 def fetch_all_products():
     all_products = {}
 
-    for label, base_url in URLS.items():
+    for pack_type, base_url in URLS.items():
         for page in range(1, MAX_PAGES + 1):
             page_products = fetch_products_from_page(base_url, page)
             if not page_products:
@@ -92,7 +94,7 @@ def fetch_all_products():
             for url, name in page_products.items():
                 all_products[url] = {
                     "name": name,
-                    "type": label
+                    "type": pack_type
                 }
 
             time.sleep(1)
@@ -103,93 +105,66 @@ def fetch_all_products():
 # STORAGE
 # =========================
 
-def load_previous():
+def load_previous_products():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
             return json.load(f)
     return {}
 
-def save_current(data):
+def save_products(products):
     with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(products, f, indent=2)
 
 # =========================
-# MESSAGE BUILDER
+# COUNTS
 # =========================
 
-def build_message(current, added, removed):
+def count_by_type(products):
     counts = {"Mini GT Box Pack": 0, "Mini GT Blister Pack": 0}
-
-    for p in current.values():
+    for p in products.values():
         counts[p["type"]] += 1
-
-    lines = []
-    lines.append("🕒 *Product Monitor Update*")
-    lines.append(f"Run time: {datetime.now()}\n")
-    lines.append(f"🆔 Run ID: {os.getenv('GITHUB_RUN_ID', 'local')}\n")
-    lines.append("📊 *Current Inventory*")
-    lines.append(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
-    lines.append(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}\n")
-
-    if added:
-        lines.append(f"➕ *Newly Added ({len(added)})*")
-        for url in added:
-            lines.append(f"• {current[url]['name']}")
-            lines.append(f"  {url}")
-        lines.append("")
-
-    if removed:
-        lines.append(f"➖ *Removed ({len(removed)})*")
-        for url, info in removed.items():
-            lines.append(f"• {info['name']}")
-        lines.append("")
-
-    if not added and not removed:
-        lines.append("✅ No product changes detected")
-
-    return "\n".join(lines)
+    return counts
 
 # =========================
-# ALERTS
+# NOTIFICATIONS
 # =========================
 
-def send_email(body):
+def send_email(subject, body):
     if not EMAIL_FROM or not EMAIL_PASSWORD:
         print("❌ Gmail credentials not set")
         return
 
-    try:
-        msg = MIMEText(body)
-        msg["Subject"] = "Mini GT Product Monitor Update"
-        msg["From"] = EMAIL_FROM
-        msg["To"] = EMAIL_TO
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_FROM
+    msg["To"] = EMAIL_TO
 
+    try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(EMAIL_FROM, EMAIL_PASSWORD)
             server.send_message(msg)
-
         print("📩 Email alert sent successfully")
     except Exception as e:
-        print("❌ Email error:", e)
+        print("❌ Email failed:", e)
 
-
-def send_telegram(body):
+def send_telegram(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("❌ Telegram credentials not set")
         return
 
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": body,
-            "parse_mode": "Markdown"
-        }
-        requests.post(url, data=payload, timeout=20)
+        requests.post(url, data=payload, timeout=10)
         print("📲 Telegram alert sent successfully")
     except Exception as e:
-        print("❌ Telegram error:", e)
+        print("❌ Telegram failed:", e)
 
 # =========================
 # MAIN
@@ -198,27 +173,51 @@ def send_telegram(body):
 def main():
     print("🔍 Product Monitor run started")
 
-    previous = load_previous()
+    previous = load_previous_products()
     current = fetch_all_products()
 
     prev_urls = set(previous.keys())
     curr_urls = set(current.keys())
 
     added = curr_urls - prev_urls
-    removed = {url: previous[url] for url in (prev_urls - curr_urls)}
+    removed = prev_urls - curr_urls
 
-    print(f"DEBUG: Total products scraped = {len(current)}")
-    print(f"DEBUG: Added = {len(added)}, Removed = {len(removed)}")
+    counts = count_by_type(current)
 
-    message = build_message(current, added, removed)
+    lines = []
+    lines.append("🕒 *Product Monitor Update*")
+    lines.append(f"Run time: {datetime.now()}")
+    lines.append("")
+    lines.append("📊 *Current Inventory*")
+    lines.append(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
+    lines.append(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}")
+    lines.append("")
 
-    print(message)
+    if added:
+        lines.append(f"➕ *Newly Added ({len(added)})*")
+        for url in added:
+            p = current[url]
+            lines.append(f"• {p['name']}")
+            lines.append(f"  {url}")
+        lines.append("")
 
-    send_email(message)
+    if removed:
+        lines.append(f"➖ *Removed ({len(removed)})*")
+        for url in removed:
+            p = previous[url]
+            lines.append(f"• {p['name']}")
+        lines.append("")
+
+    if not added and not removed:
+        lines.append("✅ *No changes since last run*")
+
+    message = "\n".join(lines)
+
+    send_email("📦 Mini GT Product Monitor Update", message)
     send_telegram(message)
 
-    save_current(current)
-
+    save_products(current)
+    print("🚀 Run completed")
     print("RUN CONTEXT:", os.getenv("GITHUB_REPOSITORY"))
 
 # =========================
