@@ -47,19 +47,44 @@ def fetch_products_from_page(base_url, page_no):
     soup = BeautifulSoup(response.text, "html.parser")
     products = set()
 
-    # Find only product cards (not header/sidebar links)
-    product_cards = soup.select("div.product-item a[href*='/details/']")
+    # Each product card
+    cards = soup.select("div.show-product-small-bx")
 
-    for a in product_cards:
-        name = a.get_text(strip=True)
-        link = a.get("href")
+    for card in cards:
+        # Product name
+        title_tag = card.select_one("div.detail-text h3")
+        if not title_tag:
+            continue
 
-        if name and link:
-            if link.startswith("/"):
-                link = "https://www.karzanddolls.com" + link
+        name = title_tag.get_text(strip=True)
+
+        # Try to find product URL from <a>
+        link = None
+        a_tag = card.find("a", href=True)
+        if a_tag and "/product/" in a_tag["href"]:
+            link = a_tag["href"]
+
+        # Fallback: onclick redirect
+        if not link:
+            cover = card.select_one("div.detail-cover")
+            if cover and cover.has_attr("onclick"):
+                onclick = cover["onclick"]
+                if "window.location.href" in onclick:
+                    link = onclick.split("'")[1]
+
+        if not link:
+            continue
+
+        # Normalize URL
+        if link.startswith("/"):
+            link = "https://www.karzanddolls.com" + link
+
+        # Strict Mini GT filtering
+        if "mini-gt-blister-pack" in link or "mini-gt-box-pack" in link:
             products.add(f"{name} | {link}")
 
     return products
+
 
 def fetch_all_products():
     all_products = set()
