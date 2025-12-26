@@ -8,12 +8,12 @@ from email.mime.text import MIMEText
 from datetime import datetime
 
 # =========================
-# CONFIG
+# CONFIGURATION
 # =========================
 
 URLS = [
-    "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
-    "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1",
+    ("Mini GT Blister Pack", "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2"),
+    ("Mini GT Box Pack", "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1"),
 ]
 
 DATA_FILE = "products_seen.json"
@@ -31,33 +31,27 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # HELPERS
 # =========================
 
-def normalize_name(name):
+def normalize_name(name: str) -> str:
     return " ".join(name.lower().split())
 
-def detect_type(url):
-    if "/product/mini-gt-blister-pack/" in url:
-        return "Mini GT Blister Pack"
-    if "/product/mini-gt/" in url:
-        return "Mini GT Box Pack"
-    return None
-
-def clean_url(url):
-    return url.split(" - ")[0].strip()
+def make_key(pack_type: str, name: str) -> str:
+    return f"{pack_type}::{normalize_name(name)}"
 
 # =========================
 # SCRAPING
 # =========================
 
-def scrape_page(url):
+def scrape_page(url: str, pack_type: str):
     r = requests.get(url, headers=HEADERS, timeout=20)
     r.raise_for_status()
+
     soup = BeautifulSoup(r.text, "html.parser")
+    cards = soup.select("div.show-product-small-bx")
 
     products = []
 
-    cards = soup.select("div.show-product-small-bx")
     if not cards:
-        return []
+        return products
 
     for card in cards:
         title = card.select_one("div.detail-text h3")
@@ -82,16 +76,10 @@ def scrape_page(url):
         if link.startswith("/"):
             link = "https://www.karzanddolls.com" + link
 
-        link = clean_url(link)
-        product_type = detect_type(link)
-
-        if not product_type:
-            continue
-
         products.append({
             "name": name,
-            "type": product_type,
-            "url": link
+            "type": pack_type,
+            "url": link.strip()
         })
 
     return products
@@ -100,16 +88,16 @@ def scrape_page(url):
 def fetch_all_products():
     all_products = {}
 
-    for base_url in URLS:
+    for pack_type, base_url in URLS:
         for page in range(1, MAX_PAGES + 1):
             page_url = f"{base_url}?page={page}"
-            items = scrape_page(page_url)
+            items = scrape_page(page_url, pack_type)
 
             if not items:
                 break
 
             for p in items:
-                key = f"{p['type']}::{normalize_name(p['name'])}"
+                key = make_key(p["type"], p["name"])
                 all_products[key] = p
 
             time.sleep(1)
@@ -136,6 +124,7 @@ def save_current(data):
 
 def send_email(subject, body):
     if not EMAIL_FROM or not EMAIL_PASSWORD:
+        print("❌ Gmail credentials not set")
         return
 
     msg = MIMEText(body)
@@ -148,16 +137,25 @@ def send_email(subject, body):
         s.login(EMAIL_FROM, EMAIL_PASSWORD)
         s.send_message(msg)
 
+    print("📩 Email alert sent successfully")
+
 
 def send_telegram(body):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("❌ Telegram credentials not set")
         return
 
     requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-        data={"chat_id": TELEGRAM_CHAT_ID, "text": body, "parse_mode": "Markdown"},
+        data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": body,
+            "parse_mode": "Markdown"
+        },
         timeout=10
     )
+
+    print("📲 Telegram alert sent successfully")
 
 # =========================
 # MAIN
@@ -176,11 +174,14 @@ def main():
     removed_keys = prev_keys - curr_keys
 
     def split(keys, source):
-        out = {"Mini GT Box Pack": [], "Mini GT Blister Pack": []}
+        result = {
+            "Mini GT Box Pack": [],
+            "Mini GT Blister Pack": []
+        }
         for k in keys:
             p = source[k]
-            out[p["type"]].append(p)
-        return out
+            result[p["type"]].append(p)
+        return result
 
     added = split(added_keys, current)
     removed = split(removed_keys, previous)
@@ -200,7 +201,7 @@ def main():
         ""
     ]
 
-    def render(title, data, show_urls):
+    def render_section(title, data, show_urls):
         lines.append(title)
         for pack in ["Mini GT Box Pack", "Mini GT Blister Pack"]:
             items = data[pack]
@@ -213,8 +214,8 @@ def main():
                     lines.append(f"  {p['url']}")
             lines.append("")
 
-    render("➕ *Added Products*", added, True)
-    render("➖ *Removed Products*", removed, False)
+    render_section("➕ *Added Products*", added, True)
+    render_section("➖ *Removed Products*", removed, False)
 
     if not added_keys and not removed_keys:
         lines.append("✅ *No changes since last run*")
@@ -225,10 +226,11 @@ def main():
     send_telegram(message)
 
     save_current(current)
+
     print("✅ Run completed")
 
 # =========================
-# ENTRY
+# ENTRY POINT
 # =========================
 
 if __name__ == "__main__":
