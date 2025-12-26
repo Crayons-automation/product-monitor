@@ -18,10 +18,3 @@ jobs:
       - run: pip install requests beautifulsoup4
 
       - run: python product_monitor.py
-
-      - run: |
-          git config user.name "bot"
-          git config user.email "bot@github.com"
-          git add products_seen.json
-          git commit -m "Update product list" || echo "No changes"
-          git push
