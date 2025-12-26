@@ -11,10 +11,10 @@ from datetime import datetime
 # CONFIGURATION
 # =========================
 
-URLS = {
-    "Mini GT Blister Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
-    "Mini GT Box Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1",
-}
+LISTING_URLS = [
+    "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
+    "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1",
+]
 
 DATA_FILE = "products_seen.json"
 MAX_PAGES = 30
@@ -35,33 +35,39 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 # HELPERS
 # =========================
 
-def normalize_key(name, pack_type):
-    """Stable comparison key"""
-    return f"{pack_type}::{name.lower().strip()}"
-
-def clean_url(url):
+def clean_url(url: str) -> str:
     """Remove hash / tracking junk"""
     return url.split(" - ")[0].strip()
+
+def detect_pack_type(url: str) -> str:
+    """Source of truth: product URL"""
+    if "/mini-gt-blister-pack/" in url:
+        return "Mini GT Blister Pack"
+    return "Mini GT Box Pack"
+
+def normalize_key(name: str, pack_type: str) -> str:
+    """Stable comparison key"""
+    return f"{pack_type}::{name.lower().strip()}"
 
 # =========================
 # SCRAPING
 # =========================
 
-def fetch_products_from_page(base_url):
-    r = requests.get(base_url, headers=HEADERS, timeout=20)
+def fetch_products_from_page(url):
+    r = requests.get(url, headers=HEADERS, timeout=20)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
     cards = soup.select("div.show-product-small-bx")
 
-    results = []
+    products = []
 
     for card in cards:
-        title_tag = card.select_one("div.detail-text h3")
-        if not title_tag:
+        title = card.select_one("div.detail-text h3")
+        if not title:
             continue
 
-        name = title_tag.get_text(strip=True)
+        name = title.get_text(strip=True)
 
         link = None
         a_tag = card.find("a", href=True)
@@ -84,24 +90,26 @@ def fetch_products_from_page(base_url):
         link = clean_url(link)
 
         if "/product/mini-gt" in link:
-            results.append((name, link))
+            products.append((name, link))
 
-    return results
+    return products
 
 
 def fetch_all_products():
     all_products = {}
 
-    for pack_type, base_url in URLS.items():
+    for base_url in LISTING_URLS:
         for page in range(1, MAX_PAGES + 1):
-            url = f"{base_url}?page={page}"
-            products = fetch_products_from_page(url)
+            page_url = f"{base_url}?page={page}"
+            items = fetch_products_from_page(page_url)
 
-            if not products:
+            if not items:
                 break
 
-            for name, link in products:
+            for name, link in items:
+                pack_type = detect_pack_type(link)
                 key = normalize_key(name, pack_type)
+
                 all_products[key] = {
                     "name": name,
                     "type": pack_type,
@@ -135,17 +143,18 @@ def send_email(subject, body):
         print("❌ Gmail credentials not set")
         return
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = EMAIL_FROM
-    msg["To"] = EMAIL_TO
-
     try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_FROM
+        msg["To"] = EMAIL_TO
+
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(EMAIL_FROM, EMAIL_PASSWORD)
             server.send_message(msg)
-        print("📩 Email sent")
+
+        print("📩 Email alert sent")
     except Exception as e:
         print("❌ Email failed:", e)
 
@@ -155,19 +164,17 @@ def send_telegram(body):
         print("❌ Telegram credentials not set")
         return
 
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": body,
-        "parse_mode": "Markdown"
-    }
-
     try:
         requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            data=payload,
+            data={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": body,
+                "parse_mode": "Markdown"
+            },
             timeout=10
         )
-        print("📲 Telegram sent")
+        print("📲 Telegram alert sent")
     except Exception as e:
         print("❌ Telegram failed:", e)
 
@@ -187,24 +194,22 @@ def main():
     added_keys = curr_keys - prev_keys
     removed_keys = prev_keys - curr_keys
 
-    # Grouping
     def group(keys, source):
-        result = {
+        out = {
             "Mini GT Box Pack": [],
             "Mini GT Blister Pack": []
         }
         for k in keys:
             p = source[k]
-            result[p["type"]].append(p)
-        return result
+            out[p["type"]].append(p)
+        return out
 
     added = group(added_keys, current)
     removed = group(removed_keys, previous)
 
-    # Counts
     counts = {
         "Mini GT Box Pack": sum(1 for p in current.values() if p["type"] == "Mini GT Box Pack"),
-        "Mini GT Blister Pack": sum(1 for p in current.values() if p["type"] == "Mini GT Blister Pack")
+        "Mini GT Blister Pack": sum(1 for p in current.values() if p["type"] == "Mini GT Blister Pack"),
     }
 
     lines = []
@@ -213,14 +218,14 @@ def main():
     lines.append(f"Run ID: {os.getenv('GITHUB_RUN_ID', 'local')}\n")
 
     lines.append("📊 *Current Inventory*")
-    lines.append(f"• Box Pack: {counts['Mini GT Box Pack']}")
-    lines.append(f"• Blister Pack: {counts['Mini GT Blister Pack']}\n")
+    lines.append(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
+    lines.append(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}\n")
 
-    def render_section(title, data, show_url):
+    def render(title, data, show_url):
         lines.append(title)
-        for pack_type in ["Mini GT Box Pack", "Mini GT Blister Pack"]:
-            items = data[pack_type]
-            lines.append(f"*{pack_type}* ({len(items)})")
+        for pack in ["Mini GT Box Pack", "Mini GT Blister Pack"]:
+            items = data[pack]
+            lines.append(f"*{pack}* ({len(items)})")
             if not items:
                 lines.append("• None")
             for p in items:
@@ -229,8 +234,8 @@ def main():
                     lines.append(f"  {p['url']}")
             lines.append("")
 
-    render_section("➕ *Added Products*", added, True)
-    render_section("➖ *Removed Products*", removed, False)
+    render("➕ *Added Products*", added, True)
+    render("➖ *Removed Products*", removed, False)
 
     if not added_keys and not removed_keys:
         lines.append("✅ *No changes since last run*")
@@ -241,12 +246,26 @@ def main():
     send_telegram(message)
 
     save_products(current)
-
-    print("🚀 Run completed")
+    print("✅ Run completed")
 
 # =========================
-# ENTRY POINT
+# ENTRY POINT (FAIL-SAFE)
 # =========================
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        error = f"""🚨 *Mini GT Monitor FAILED*
+
+Error:
+{str(e)}
+
+Time: {datetime.now()}
+Repo: {os.getenv('GITHUB_REPOSITORY')}
+Run ID: {os.getenv('GITHUB_RUN_ID')}
+"""
+        print(error)
+        send_telegram(error)
+        send_email("🚨 Mini GT Monitor FAILED", error)
+        raise
