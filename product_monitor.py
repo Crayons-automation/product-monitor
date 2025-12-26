@@ -80,7 +80,8 @@ def fetch_products_from_page(base_url, page_no):
             link = "https://www.karzanddolls.com" + link
 
         # Strict Mini GT filtering
-        if "mini-gt-blister-pack" in link or "mini-gt-box-pack" in link:
+        # Accept all Mini GT products
+        if "/product/mini-gt" in link:
             products.add(f"{name} | {link}")
 
     return products
@@ -97,7 +98,13 @@ def fetch_all_products():
                 break
 
             for p in products:
-                all_products.add(f"[{label}] {p}")
+                name, link = p.split(" | ", 1)
+
+                if label == "Mini GT Blister Pack" and "mini-gt-blister-pack" in link:
+                    all_products.add(f"[Mini GT Blister Pack] {name} | {link}")
+
+                elif label == "Mini GT Box Pack" and "/product/mini-gt/" in link:
+                    all_products.add(f"[Mini GT Box Pack] {name} | {link}")
 
             time.sleep(1)
 
