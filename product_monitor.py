@@ -77,6 +77,20 @@ def fetch_all_products():
             time.sleep(1)
 
     return all_products
+    
+def count_by_type(products):
+    counts = {
+        "Mini GT Box Pack": 0,
+        "Mini GT Blister Pack": 0
+    }
+
+    for p in products:
+        if p.startswith("[Mini GT Box Pack]"):
+            counts["Mini GT Box Pack"] += 1
+        elif p.startswith("[Mini GT Blister Pack]"):
+            counts["Mini GT Blister Pack"] += 1
+
+    return counts
 
 # =========================
 # STORAGE
@@ -150,6 +164,12 @@ def main():
     previous_products = load_previous_products()
     current_products = fetch_all_products()
 
+    counts = count_by_type(current_products)
+
+    print("📊 Product count:")
+    print(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
+    print(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}")
+
     new_products = current_products - previous_products
 
     if new_products:
@@ -157,8 +177,14 @@ def main():
         for p in new_products:
             print("➕", p)
 
-        send_email(new_products)
-        send_telegram(new_products)
+        # Append counts to alerts
+        summary = set(new_products)
+        summary.add(f"📦 Box Pack count: {counts['Mini GT Box Pack']}")
+        summary.add(f"🧊 Blister Pack count: {counts['Mini GT Blister Pack']}")
+
+        send_email(summary)
+        send_telegram(summary)
+
         save_products(current_products)
     else:
         print(f"✅ No new products ({datetime.now()})")
