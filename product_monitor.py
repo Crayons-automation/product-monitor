@@ -32,22 +32,29 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
+# HELPERS
+# =========================
+
+def normalize_key(name, pack_type):
+    """Stable comparison key"""
+    return f"{pack_type}::{name.lower().strip()}"
+
+def clean_url(url):
+    """Remove hash / tracking junk"""
+    return url.split(" - ")[0].strip()
+
+# =========================
 # SCRAPING
 # =========================
 
-def clean_product_url(url: str) -> str:
-    """Remove tracking/hash garbage from URL"""
-    return url.split(" - ")[0].strip()
-
-def fetch_products_from_page(base_url, page_no):
-    url = f"{base_url}?page={page_no}"
-    r = requests.get(url, headers=HEADERS, timeout=20)
+def fetch_products_from_page(base_url):
+    r = requests.get(base_url, headers=HEADERS, timeout=20)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
     cards = soup.select("div.show-product-small-bx")
 
-    results = {}
+    results = []
 
     for card in cards:
         title_tag = card.select_one("div.detail-text h3")
@@ -74,10 +81,10 @@ def fetch_products_from_page(base_url, page_no):
         if link.startswith("/"):
             link = "https://www.karzanddolls.com" + link
 
-        link = clean_product_url(link)
+        link = clean_url(link)
 
         if "/product/mini-gt" in link:
-            results[link] = name
+            results.append((name, link))
 
     return results
 
@@ -87,14 +94,18 @@ def fetch_all_products():
 
     for pack_type, base_url in URLS.items():
         for page in range(1, MAX_PAGES + 1):
-            page_products = fetch_products_from_page(base_url, page)
-            if not page_products:
+            url = f"{base_url}?page={page}"
+            products = fetch_products_from_page(url)
+
+            if not products:
                 break
 
-            for url, name in page_products.items():
-                all_products[url] = {
+            for name, link in products:
+                key = normalize_key(name, pack_type)
+                all_products[key] = {
                     "name": name,
-                    "type": pack_type
+                    "type": pack_type,
+                    "url": link
                 }
 
             time.sleep(1)
@@ -116,16 +127,6 @@ def save_products(products):
         json.dump(products, f, indent=2)
 
 # =========================
-# COUNTS
-# =========================
-
-def count_by_type(products):
-    counts = {"Mini GT Box Pack": 0, "Mini GT Blister Pack": 0}
-    for p in products.values():
-        counts[p["type"]] += 1
-    return counts
-
-# =========================
 # NOTIFICATIONS
 # =========================
 
@@ -144,25 +145,29 @@ def send_email(subject, body):
             server.starttls()
             server.login(EMAIL_FROM, EMAIL_PASSWORD)
             server.send_message(msg)
-        print("📩 Email alert sent successfully")
+        print("📩 Email sent")
     except Exception as e:
         print("❌ Email failed:", e)
 
-def send_telegram(message):
+
+def send_telegram(body):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("❌ Telegram credentials not set")
         return
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
+        "text": body,
         "parse_mode": "Markdown"
     }
 
     try:
-        requests.post(url, data=payload, timeout=10)
-        print("📲 Telegram alert sent successfully")
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            data=payload,
+            timeout=10
+        )
+        print("📲 Telegram sent")
     except Exception as e:
         print("❌ Telegram failed:", e)
 
@@ -176,39 +181,58 @@ def main():
     previous = load_previous_products()
     current = fetch_all_products()
 
-    prev_urls = set(previous.keys())
-    curr_urls = set(current.keys())
+    prev_keys = set(previous.keys())
+    curr_keys = set(current.keys())
 
-    added = curr_urls - prev_urls
-    removed = prev_urls - curr_urls
+    added_keys = curr_keys - prev_keys
+    removed_keys = prev_keys - curr_keys
 
-    counts = count_by_type(current)
+    # Grouping
+    def group(keys, source):
+        result = {
+            "Mini GT Box Pack": [],
+            "Mini GT Blister Pack": []
+        }
+        for k in keys:
+            p = source[k]
+            result[p["type"]].append(p)
+        return result
+
+    added = group(added_keys, current)
+    removed = group(removed_keys, previous)
+
+    # Counts
+    counts = {
+        "Mini GT Box Pack": sum(1 for p in current.values() if p["type"] == "Mini GT Box Pack"),
+        "Mini GT Blister Pack": sum(1 for p in current.values() if p["type"] == "Mini GT Blister Pack")
+    }
 
     lines = []
-    lines.append("🕒 *Product Monitor Update*")
+    lines.append("🕒 *Mini GT Product Monitor*")
     lines.append(f"Run time: {datetime.now()}")
-    lines.append("")
+    lines.append(f"Run ID: {os.getenv('GITHUB_RUN_ID', 'local')}\n")
+
     lines.append("📊 *Current Inventory*")
-    lines.append(f"• Mini GT Box Pack: {counts['Mini GT Box Pack']}")
-    lines.append(f"• Mini GT Blister Pack: {counts['Mini GT Blister Pack']}")
-    lines.append("")
+    lines.append(f"• Box Pack: {counts['Mini GT Box Pack']}")
+    lines.append(f"• Blister Pack: {counts['Mini GT Blister Pack']}\n")
 
-    if added:
-        lines.append(f"➕ *Newly Added ({len(added)})*")
-        for url in added:
-            p = current[url]
-            lines.append(f"• {p['name']}")
-            lines.append(f"  {url}")
-        lines.append("")
+    def render_section(title, data, show_url):
+        lines.append(title)
+        for pack_type in ["Mini GT Box Pack", "Mini GT Blister Pack"]:
+            items = data[pack_type]
+            lines.append(f"*{pack_type}* ({len(items)})")
+            if not items:
+                lines.append("• None")
+            for p in items:
+                lines.append(f"• {p['name']}")
+                if show_url:
+                    lines.append(f"  {p['url']}")
+            lines.append("")
 
-    if removed:
-        lines.append(f"➖ *Removed ({len(removed)})*")
-        for url in removed:
-            p = previous[url]
-            lines.append(f"• {p['name']}")
-        lines.append("")
+    render_section("➕ *Added Products*", added, True)
+    render_section("➖ *Removed Products*", removed, False)
 
-    if not added and not removed:
+    if not added_keys and not removed_keys:
         lines.append("✅ *No changes since last run*")
 
     message = "\n".join(lines)
@@ -217,8 +241,8 @@ def main():
     send_telegram(message)
 
     save_products(current)
+
     print("🚀 Run completed")
-    print("RUN CONTEXT:", os.getenv("GITHUB_REPOSITORY"))
 
 # =========================
 # ENTRY POINT
