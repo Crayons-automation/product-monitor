@@ -1,198 +1,205 @@
 import requests
 from bs4 import BeautifulSoup
-import time
 import json
 import os
+# import smtplib
+# from email.mime.text import MIMEText
 from datetime import datetime
+from urllib.parse import urlparse
 
 # =========================
-# CONFIGURATION
+# CONFIG
 # =========================
 
 URLS = {
-    "Mini GT Blister Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
-    "Mini GT Box Pack": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1"
+    "Blister": "https://www.karzanddolls.com/details/mini+gt+/mini-gt-blister-pack/MTY2",
+    "Box": "https://www.karzanddolls.com/details/mini+gt+/mini-gt/MTY1",
 }
 
-DATA_FILE = "products_seen.json"
 MAX_PAGES = 10
+DATA_FILE = "products_seen.json"
+
+# EMAIL_FROM = os.getenv("GMAIL_USER")
+# EMAIL_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+# EMAIL_TO = EMAIL_FROM
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
 # HELPERS
 # =========================
 
-def normalize_key(name, url):
-    return url.strip().lower()
+def clean_product_path(url):
+    """
+    Removes encrypted tail, keeps stable path.
+    """
+    path = urlparse(url).path
+    parts = [p for p in path.split("/") if p]
+    if len(parts) >= 3:
+        return f"/product/{parts[-3]}/{parts[-2]}"
+    return path
+
+
+def product_key(product_type, clean_path):
+    return f"{product_type}|{clean_path}"
 
 # =========================
-# SCRAPING
+# SCRAPE
 # =========================
 
-def fetch_products_from_page(base_url, page_no):
-    url = f"{base_url}?page={page_no}"
-    response = requests.get(url, headers=HEADERS, timeout=20)
-    response.raise_for_status()
+def fetch_products(base_url, product_type):
+    products = {}
+    count = 0
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    products = []
+    for page in range(1, MAX_PAGES + 1):
+        url = f"{base_url}?page={page}"
+        r = requests.get(url, headers=HEADERS, timeout=20)
+        r.raise_for_status()
 
-    cards = soup.select("div.show-product-small-bx")
+        soup = BeautifulSoup(r.text, "html.parser")
+        cards = soup.select("div.show-product-small-bx")
 
-    for card in cards:
-        title_tag = card.select_one("div.detail-text h3")
-        if not title_tag:
-            continue
+        if not cards:
+            break
 
-        name = title_tag.get_text(strip=True)
+        count += len(cards)
 
-        link = None
-        a_tag = card.find("a", href=True)
-        if a_tag and "/product/" in a_tag["href"]:
-            link = a_tag["href"]
+        for card in cards:
+            title = card.select_one("div.detail-text h3")
+            if not title:
+                continue
 
-        if not link:
-            cover = card.select_one("div.detail-cover")
-            if cover and cover.has_attr("onclick"):
-                onclick = cover["onclick"]
-                if "window.location.href" in onclick:
-                    link = onclick.split("'")[1]
+            name = title.get_text(strip=True)
 
-        if not link:
-            continue
+            link = None
+            a = card.find("a", href=True)
+            if a and "/product/" in a["href"]:
+                link = a["href"]
 
-        if link.startswith("/"):
-            link = "https://www.karzanddolls.com" + link
+            if not link:
+                cover = card.select_one("div.detail-cover")
+                if cover and "window.location.href" in cover.get("onclick", ""):
+                    link = cover["onclick"].split("'")[1]
 
-        products.append({
-            "name": name,
-            "url": link
-        })
+            if not link:
+                continue
 
-    return products
+            if link.startswith("/"):
+                link = "https://www.karzanddolls.com" + link
 
+            clean_path = clean_product_path(link)
+            key = product_key(product_type, clean_path)
 
-def fetch_all_products():
-    all_products = {}
+            products[key] = {
+                "name": name,
+                "url": "https://www.karzanddolls.com" + clean_path,
+                "type": product_type,
+            }
 
-    for label, base_url in URLS.items():
-        for page in range(1, MAX_PAGES + 1):
-            page_products = fetch_products_from_page(base_url, page)
-            if not page_products:
-                break
-
-            for p in page_products:
-                url = p["url"]
-                name = p["name"]
-
-                if label == "Mini GT Blister Pack" and "mini-gt-blister-pack" in url:
-                    key = normalize_key(name, url)
-                    all_products[key] = {
-                        "type": "Blister",
-                        "name": name,
-                        "url": url
-                    }
-
-                elif label == "Mini GT Box Pack" and "/product/mini-gt/" in url:
-                    key = normalize_key(name, url)
-                    all_products[key] = {
-                        "type": "Box",
-                        "name": name,
-                        "url": url
-                    }
-
-            time.sleep(1)
-
-    return all_products
+    return products, count
 
 # =========================
 # STORAGE
 # =========================
 
-def load_previous_products():
+def load_previous():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
+        with open(DATA_FILE) as f:
             return json.load(f)
     return {}
 
-
-def save_products(products):
+def save_current(data):
     with open(DATA_FILE, "w") as f:
-        json.dump(products, f, indent=2)
+        json.dump(data, f, indent=2)
 
 # =========================
-# TELEGRAM
+# ALERTS
 # =========================
 
-def send_telegram(message):
+# def send_email(body):
+#     if not EMAIL_FROM or not EMAIL_PASSWORD:
+#         return
+#
+#     msg = MIMEText(body)
+#     msg["Subject"] = "Mini GT Product Monitor"
+#     msg["From"] = EMAIL_FROM
+#     msg["To"] = EMAIL_TO
+#
+#     with smtplib.SMTP("smtp.gmail.com", 587) as s:
+#         s.starttls()
+#         s.login(EMAIL_FROM, EMAIL_PASSWORD)
+#         s.send_message(msg)
+
+def send_telegram(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("❌ Telegram credentials not set")
         return
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": False
-    }
-
-    requests.post(url, data=payload)
+    requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": text,
+            "disable_web_page_preview": True,
+        },
+        timeout=20,
+    )
 
 # =========================
 # MAIN
 # =========================
 
 def main():
-    now = datetime.now()
+    previous = load_previous()
+    current = {}
 
-    previous = load_previous_products()
-    current = fetch_all_products()
+    blister_products, blister_count = fetch_products(URLS["Blister"], "Blister")
+    box_products, box_count = fetch_products(URLS["Box"], "Box")
+
+    current.update(blister_products)
+    current.update(box_products)
 
     prev_keys = set(previous.keys())
     curr_keys = set(current.keys())
 
-    added_keys = curr_keys - prev_keys
-    removed_keys = prev_keys - curr_keys
+    added = curr_keys - prev_keys
+    removed = prev_keys - curr_keys
 
-    box_count = sum(1 for v in current.values() if v["type"] == "Box")
-    blister_count = sum(1 for v in current.values() if v["type"] == "Blister")
+    lines = []
+    lines.append("🕒 Mini GT Product Monitor")
+    lines.append(str(datetime.now()))
+    lines.append("")
+    lines.append("📊 Current Inventory")
+    lines.append(f"• Mini GT Box Pack: {box_count}")
+    lines.append(f"• Mini GT Blister Pack: {blister_count}")
+    lines.append("")
 
-    message = f"""🕒 *Mini GT Product Monitor*
-Run time: {now}
-
-📊 *Current Inventory*
-• Mini GT Box Pack: {box_count}
-• Mini GT Blister Pack: {blister_count}
-"""
-
-    if added_keys:
-        message += "\n➕ *Added Products*\n"
-        for k in added_keys:
+    if added:
+        lines.append("➕ Added Products")
+        for k in added:
             p = current[k]
-            message += f"*{p['type']}* • {p['name']}\n{p['url']}\n\n"
+            lines.append(f"• [{p['type']}] {p['name']}")
+            lines.append(p["url"])
+        lines.append("")
 
-    if removed_keys:
-        message += "\n➖ *Removed Products*\n"
-        for k in removed_keys:
+    if removed:
+        lines.append("➖ Removed Products")
+        for k in removed:
             p = previous[k]
-            message += f"*{p['type']}* • {p['name']}\n\n"
+            lines.append(f"• [{p['type']}] {p['name']}")
+        lines.append("")
 
-    if not added_keys and not removed_keys:
-        message += "\n✅ No changes since last run"
+    message = "\n".join(lines)
 
+    # send_email(message)
     send_telegram(message)
 
-    save_products(current)
+    save_current(current)
 
 # =========================
-# ENTRY POINT
+# ENTRY
 # =========================
 
 if __name__ == "__main__":
