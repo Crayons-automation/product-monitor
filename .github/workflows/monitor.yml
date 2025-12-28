@@ -28,7 +28,7 @@ jobs:
         run: pip install requests beautifulsoup4
 
       - name: Run product monitor
-        run: python product_monitor.py
+        run: python productmonitor_telegram.py
 
       # ⭐ THIS IS THE IMPORTANT PART ⭐
       - name: Commit updated product snapshot
