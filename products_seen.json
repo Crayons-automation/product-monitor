@@ -54,11 +54,6 @@
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/nissan-gt-r-r35-lb-works-type-1-rear-wing-ver-2-lb-gold\u00a0\u00a0-\u00a0",
     "type": "Blister"
   },
-  "Blister|/product/mini-gt-blister-pack/nissan-gt-r-r35-lb-works-type-1-rear-wing-ver-1-matte-grey\u00a0\u00a0-\u00a0": {
-    "name": "NISSAN GT-R R35 LB WORKS TYPE 1,REAR WIN...",
-    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/nissan-gt-r-r35-lb-works-type-1-rear-wing-ver-1-matte-grey\u00a0\u00a0-\u00a0",
-    "type": "Blister"
-  },
   "Blister|/product/mini-gt-blister-pack/mini-gt-jaguar-c-x75-black": {
     "name": "MINI GT JAGUAR C-X75 BLACK",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-jaguar-c-x75-black",
@@ -137,6 +132,11 @@
   "Blister|/product/mini-gt-blister-pack/nissan-silvia-s15-dmax-46-dmax-racing-2023-d1-grand-prix": {
     "name": "NISSAN SILVIA S15 DMAX 46 DMAX RACING 20...",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/nissan-silvia-s15-dmax-46-dmax-racing-2023-d1-grand-prix",
+    "type": "Blister"
+  },
+  "Blister|/product/mini-gt-blister-pack/mini-gt-mclaren-750s-spider-cirrus-grey\u00a0": {
+    "name": "MINI GT MCLAREN 750S SPIDER CIRRUS GREY\ufffd...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-mclaren-750s-spider-cirrus-grey\u00a0",
     "type": "Blister"
   },
   "Blister|/product/mini-gt-blister-pack/nissan-gtr-nismo-gt3-11-gainer-tanax-gtr-gainer-2023-": {
@@ -232,6 +232,16 @@
   "Blister|/product/mini-gt-blister-pack/toyota-gr86-hks-type-r-advan-2022-tokyo-auto-salon": {
     "name": "TOYOTA GR86 HKS TYPE R ADVAN 2022 TOKYO ...",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/toyota-gr86-hks-type-r-advan-2022-tokyo-auto-salon",
+    "type": "Blister"
+  },
+  "Blister|/product/mini-gt-blister-pack/mini-gt-toyota-supra-veilside-combat-v-ii-combat-grey": {
+    "name": "MINI GT TOYOTA SUPRA VEILSIDE COMBAT V-I...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-toyota-supra-veilside-combat-v-ii-combat-grey",
+    "type": "Blister"
+  },
+  "Blister|/product/mini-gt-blister-pack/toyota-supra-a80-top-secret-gt300-top-secret-gold": {
+    "name": "TOYOTA SUPRA A80 TOP SECRET GT300 TOP SE...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/toyota-supra-a80-top-secret-gt300-top-secret-gold",
     "type": "Blister"
   },
   "Blister|/product/mini-gt-blister-pack/lb-works-x-abas-works-abarth-595-red\u00a0\u00a0-\u00a0": {
@@ -429,6 +439,11 @@
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-bmw-z8-silver",
     "type": "Box"
   },
+  "Box|/product/mini-gt/mini-gt-nissan-gt-r-nismo-2024-brilliant-white-pearl": {
+    "name": "MINI GT NISSAN GT-R NISMO 2024 BRILLIANT...",
+    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-nissan-gt-r-nismo-2024-brilliant-white-pearl",
+    "type": "Box"
+  },
   "Box|/product/mini-gt/mini-gt-mercedes-maybach-s-680-black": {
     "name": "MINI GT MERCEDES-MAYBACH S 680 BLACK",
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-mercedes-maybach-s-680-black",
@@ -482,6 +497,11 @@
   "Box|/product/mini-gt/mini-gt-bmw-m3-m-performance-touring-mint-green\u00a0\u00a0-\u00a0": {
     "name": "MINI GT BMW M3 M PERFORMANCE TOURING MIN...",
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-bmw-m3-m-performance-touring-mint-green\u00a0\u00a0-\u00a0",
+    "type": "Box"
+  },
+  "Box|/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sto-bianco-asopo": {
+    "name": "MINI GT LAMBORGHINI HURAC\u00c1N STO BIANCO ...",
+    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sto-bianco-asopo",
     "type": "Box"
   },
   "Box|/product/mini-gt/mini-gt-mazda-rx-7-re-amemiya-20b-na-3rotor-7-ama-san-go": {
@@ -602,11 +622,6 @@
   "Box|/product/mini-gt/mini-gt-lb-works-x-abas-works-abarth-595-gara-white": {
     "name": "MINI GT LB-WORKS X ABAS WORKS ABARTH 595...",
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-lb-works-x-abas-works-abarth-595-gara-white",
-    "type": "Box"
-  },
-  "Box|/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sterrato-blu-aegir": {
-    "name": "MINI GT LAMBORGHINI HURAC\u00c1N STERRATO BL...",
-    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sterrato-blu-aegir",
     "type": "Box"
   },
   "Box|/product/mini-gt/mini-gt-lancia-stratos-hf-stradale-verde-chiaro": {
