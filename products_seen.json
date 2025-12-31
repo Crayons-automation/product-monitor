@@ -129,6 +129,21 @@
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-nissan-z-veilside-fz400-gold-chrome",
     "type": "Blister"
   },
+  "Blister|/product/mini-gt-blister-pack/nissan-gt-r-nismo-2024-nismo-stealth-gray": {
+    "name": "NISSAN GT-R NISMO 2024 NISMO STEALTH GRA...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/nissan-gt-r-nismo-2024-nismo-stealth-gray",
+    "type": "Blister"
+  },
+  "Blister|/product/mini-gt-blister-pack/mini-gt-bmw-m3-m-performance-touring-daytona-violet": {
+    "name": "MINI GT BMW M3 M PERFORMANCE TOURING DAY...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-bmw-m3-m-performance-touring-daytona-violet",
+    "type": "Blister"
+  },
+  "Blister|/product/mini-gt-blister-pack/mini-gt-lamborghini-revuelto-giallo\u00a0\u00a0-\u00a0": {
+    "name": "MINI GT LAMBORGHINI REVUELTO GIALLO\u00a0\u00a0 ...",
+    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-lamborghini-revuelto-giallo\u00a0\u00a0-\u00a0",
+    "type": "Blister"
+  },
   "Blister|/product/mini-gt-blister-pack/nissan-silvia-s15-dmax-46-dmax-racing-2023-d1-grand-prix": {
     "name": "NISSAN SILVIA S15 DMAX 46 DMAX RACING 20...",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/nissan-silvia-s15-dmax-46-dmax-racing-2023-d1-grand-prix",
@@ -419,11 +434,6 @@
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-bmw-z8-silver",
     "type": "Box"
   },
-  "Box|/product/mini-gt/mini-gt-nissan-gt-r-nismo-2024-brilliant-white-pearl": {
-    "name": "MINI GT NISSAN GT-R NISMO 2024 BRILLIANT...",
-    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-nissan-gt-r-nismo-2024-brilliant-white-pearl",
-    "type": "Box"
-  },
   "Box|/product/mini-gt/mini-gt-mercedes-maybach-s-680-black": {
     "name": "MINI GT MERCEDES-MAYBACH S 680 BLACK",
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-mercedes-maybach-s-680-black",
@@ -477,11 +487,6 @@
   "Box|/product/mini-gt/mini-gt-bmw-m3-m-performance-touring-mint-green\u00a0\u00a0-\u00a0": {
     "name": "MINI GT BMW M3 M PERFORMANCE TOURING MIN...",
     "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-bmw-m3-m-performance-touring-mint-green\u00a0\u00a0-\u00a0",
-    "type": "Box"
-  },
-  "Box|/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sto-bianco-asopo": {
-    "name": "MINI GT LAMBORGHINI HURAC\u00c1N STO BIANCO ...",
-    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-lamborghini-hurac\u00c1n-sto-bianco-asopo",
     "type": "Box"
   },
   "Box|/product/mini-gt/mini-gt-mazda-rx-7-re-amemiya-20b-na-3rotor-7-ama-san-go": {
