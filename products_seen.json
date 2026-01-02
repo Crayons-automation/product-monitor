@@ -159,11 +159,6 @@
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-abarth-595-lb-works-x-abas-works-grey",
     "type": "Blister"
   },
-  "Blister|/product/mini-gt-blister-pack/mini-gt-lamborghini-revuelto-verde-selvans\u00a0\u00a0-\u00a0": {
-    "name": "MINI GT LAMBORGHINI REVUELTO VERDE SELVA...",
-    "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-lamborghini-revuelto-verde-selvans\u00a0\u00a0-\u00a0",
-    "type": "Blister"
-  },
   "Blister|/product/mini-gt-blister-pack/mini-gt-mercedes-benz-eqs-580-4matic-red-metallic": {
     "name": "MINI GT MERCEDES-BENZ EQS 580 4MATIC RED...",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-mercedes-benz-eqs-580-4matic-red-metallic",
@@ -308,6 +303,16 @@
     "name": "MINI GT EUNOS ROADSTER V-SPECIAL",
     "url": "https://www.karzanddolls.com/product/mini-gt-blister-pack/mini-gt-eunos-roadster-v-special",
     "type": "Blister"
+  },
+  "Box|/product/mini-gt/lamborghini-countach-lpi-800-4-viola-30th\u00a0": {
+    "name": "LAMBORGHINI COUNTACH LPI 800-4 VIOLA 30T...",
+    "url": "https://www.karzanddolls.com/product/mini-gt/lamborghini-countach-lpi-800-4-viola-30th\u00a0",
+    "type": "Box"
+  },
+  "Box|/product/mini-gt/mini-gt-mclaren-750s-saros-grey": {
+    "name": "MINI GT MCLAREN 750S SAROS GREY",
+    "url": "https://www.karzanddolls.com/product/mini-gt/mini-gt-mclaren-750s-saros-grey",
+    "type": "Box"
   },
   "Box|/product/mini-gt/mini-gt-lotus-esprit-turbo-white-for-your-eyes-only": {
     "name": "MINI GT LOTUS ESPRIT TURBO WHITE FOR YOU...",
